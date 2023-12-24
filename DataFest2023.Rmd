@@ -1,0 +1,977 @@
+---
+title: "DataFest 2023"
+author: "Daniel Neufeldt"
+date: "4/28/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+```
+
+Let's load the data
+
+```{r attorney}
+# attorney data
+attorneys <- read.csv("attorneys.csv")
+head(attorneys)
+dim(attorneys)
+```
+
+```{r client}
+# client data
+clients <- read.csv("clients.csv")
+head(clients)
+dim(clients)
+```
+
+```{r attorney time data}
+# attorney time data
+a_time <- read.csv("attorneytimeentries.csv")
+head(a_time)
+dim(a_time)
+```
+
+```{r categories}
+# categories of different questions asked
+categories <- read.csv("categories.csv")
+head(categories)
+dim(categories)
+unique(categories$Category)
+```
+
+```{r questions}
+# Questions
+questions <- read.csv("questions.csv")
+head(questions)
+dim(questions)
+unique(questions$Subcategory)
+```
+
+```{r State Sites}
+# State sites
+
+states <- read.csv("statesites.csv")
+
+
+states
+dim(states)
+```
+
+```{r subcategories}
+# subcategories
+
+subcategories <- read.csv("subcategories.csv")
+head(subcategories)
+```
+
+
+```{r question posts}
+question_posts <- read.csv("questionposts.csv")
+head(question_posts)
+
+question_posts[74:78,]
+```
+
+Client stuff
+
+```{r}
+# let's clean this data
+client_q <- inner_join(clients, questions, by = c("ClientUno" = "AskedByClientUno"))
+client_q <- client_q[client_q$AllowedIncome != "NULL", ]
+client_q <- client_q[!is.na(client_q$AnnualIncome), ]
+
+client_q <- client_q[as.numeric(client_q$AllowedIncome) >= as.numeric(client_q$AnnualIncome),]
+
+# table(client_q$EthnicIdentity)
+```
+
+
+```{r}
+library(stringr)
+
+african_index <- str_detect(client_q$EthnicIdentity, "(?i)African")
+african_clients <- client_q[african_index, ]
+
+hispanic_index <- str_detect(client_q$EthnicIdentity, "(?i)Hispanic|(!?)Latino")
+hispanic_clients <- client_q[hispanic_index, ]
+
+caucasian_index <- str_detect(client_q$EthnicIdentity, "(?i)Caucasian")
+caucasian_clients <- client_q[caucasian_index, ]
+
+native_index <- str_detect(client_q$EthnicIdentity, "(?i)Native")
+native_clients <- client_q[native_index, ]
+
+asian_index <- str_detect(client_q$EthnicIdentity, "(?i)^Asian|(?i)Pacific Islander|(?i)Hawaiian")
+asian_clients <- client_q[asian_index, ]
+
+client_q$african <- african_index
+client_q$hispanic <- hispanic_index
+client_q$native <- native_index
+client_q$caucasian <- caucasian_index
+client_q$asian <- asian_index
+
+
+```
+
+```{r}
+sample_pop <- dim(client_q)[1]
+african_pop <- dim(african_clients)[1]
+hispanic_pop <- dim(hispanic_clients)[1]
+caucasian_pop <- dim(caucasian_clients)[1]
+native_pop <- dim(native_clients)[1]
+asian_pop <- dim(asian_clients)[1]
+
+african_prop <- african_pop / sample_pop
+hispanic_prop <- hispanic_pop / sample_pop
+
+caucasian_prop <- caucasian_pop / sample_pop
+
+native_prop <- native_pop / sample_pop
+asian_prop <- asian_pop / sample_pop
+
+african_prop + hispanic_prop + caucasian_prop + native_prop + asian_prop
+
+
+
+
+
+
+```
+Let's look at marriage status and divorce rates
+```{r}
+table(client_q$MaritalStatus)
+
+single_pop <- 53377
+married_pop <- 30696 + 3248
+divorced_Sep_Widowed <- 364 + 2101 + 20509 + 13752
+
+total_marriage_status <- single_pop + married_pop + divorced_Sep_Widowed
+
+single_prop <- single_pop / total_marriage_status
+married_prop <- married_pop / total_marriage_status
+divorced_Sep_Widowed_prop <- divorced_Sep_Widowed / total_marriage_status
+
+married_index <- str_detect(client_q$MaritalStatus, "(?i)Married")
+single_index <- str_detect(client_q$MaritalStatus, "(?i)single")
+divorced_index <- str_detect(client_q$MaritalStatus, "(?i)divorced|(?i)widow|(?i)separated")
+
+client_q$married <- married_index
+client_q$single <- single_index
+client_q$divorced <- divorced_index
+```
+
+```{r}
+barplot(table(questions$Category))
+
+clients_fam <- client_q[client_q$Category == "Family and Children",]
+clients_fam_size <- dim(clients_fam)[1]
+sum(clients_fam$married) / clients_fam_size
+sum(clients_fam$divorced) / clients_fam_size
+sum(clients_fam$single) / clients_fam_size
+```
+
+```{r}
+barplot(table(clients_fam$StateAbbr.x))
+
+state_tab <- table(clients_fam$StateAbbr.x)
+state_tab <- state_tab[order(state_tab, decreasing = T)]
+state_tab[1:5]
+
+barplot(state_tab[1:5])
+
+
+texas_size <- 7330
+
+
+sum(clients_fam[clients_fam$StateAbbr.x == "TX", ]$native)/7330
+#hispanic = 0.3334243 african = 0.1189632 white = 0.4234652 asian = 0.02114598 native = 0.0207367
+
+
+```
+
+```{r}
+table(subcategories$Subcategory)[order(table(subcategories$Subcategory), decreasing = T)]
+
+
+# natural disasters: flood, natural disaster, wildfire, hurricane
+
+table(questions$Subcategory)[order(table(questions$Subcategory), decreasing = T)]
+```
+
+```{r}
+flood_index <- str_detect(questions$Subcategory, "(?i)flood")
+flood_questions <- questions[flood_index, ]
+
+nd_index <- str_detect(questions$Subcategory, "(?i)natural disaster")
+nd_questions <- questions[nd_index, ]
+
+covid_index <- str_detect(questions$Subcategory, "(?i)covid")
+covid_questions <- questions[covid_index,]
+
+wildfire_index <- str_detect(questions$Subcategory, "(?i)wildfire")
+wildfire_questions <- questions[wildfire_index, ]
+
+hurricane_index <- str_detect(questions$Subcategory, "(?i)hurricane")
+hurricane_questions <- questions[hurricane_index, ]
+
+natural_disaster_index <- str_detect(questions$Subcategory, "(?i)hurricane|(?i)wildfire|(?i)natural disaster|(?i)flood")
+natural_disaster_questions <- questions[natural_disaster_index,]
+
+natural_disaster_questions <- arrange(natural_disaster_questions, AskedOnUtc)
+natural_disaster_questions$AskedOnUtc <- as.POSIXct(natural_disaster_questions$AskedOnUtc, format = "%Y - %m - %d %H:%M:%S")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Attorney Stuff
+
+```{r}
+attorneys[1,]
+question_posts[1,]
+```
+
+```{r}
+questions_merged <- question_posts %>% left_join(questions, by = c("QuestionUno"))
+
+left_join(questions_merged, attorneys, by = c("TakenByAttorneyUno"= "AttorneyUno"))
+attorneys$AttorneyUno
+questions_merged$TakenByAttorneyUno
+
+question_attorney <- left_join(questions, attorneys, by = c("TakenByAttorneyUno"= "AttorneyUno"))
+sum((question_attorney$TakenByAttorneyUno) == "NULL")
+
+
+```
+
+```{r}
+question_null <- questions[(question_attorney$TakenByAttorneyUno) == "NULL",]
+questions[questions$TakenByAttorneyUno == "NULL",]
+table(question_null$Subcategory)
+
+
+question_null <- questions[questions$TakenByAttorneyUno == "NULL",]
+clients_null <- clients[(clients$AnnualIncome != "NULL"),]
+
+
+question_null_client <- left_join(question_null, clients_null, by = c("AskedByClientUno" ="ClientUno"))
+# this is the clients that have not had their questions addressed by an attorney and below is where we remove all instances where allowed income is NULL
+question_null_client <- question_null_client[(!is.na(question_null_client$AllowedIncome)),]
+
+question_null_client_eligible <- question_null_client[as.numeric(question_null_client$AllowedIncome) >= as.numeric(question_null_client$AnnualIncome),]
+
+# question_null_client_eligible gives us the eligible clients who did not have their questions addressed
+question_null_client_eligible
+
+
+
+question_answered <- questions[-((question_attorney$TakenByAttorneyUno) == "NULL"),]
+table(question_answered$Subcategory)
+```
+
+```{r}
+tab <- table(question_null_client_eligible$Subcategory)
+sorted_tab <- tab[order(tab, decreasing = T)]
+sorted_tab
+
+table(question_null_client_eligible$Category)
+
+q_n_c_e_f <- question_null_client_eligible[question_null_client_eligible$Category == "Family and Children",]
+
+#table(q_n_c_e_f$Subcategory)
+```
+
+```{r}
+question_null <- questions[questions$TakenByAttorneyUno == "NULL",]
+clients_null <- clients[(clients$AnnualIncome != "NULL"),]
+
+
+question_null_client <- left_join(question_null, clients_null, by = c("AskedByClientUno" ="ClientUno"))
+# this is the clients that have not had their questions addressed by an attorney and below is where we remove all instances where allowed income is NULL
+question_null_client <- question_null_client[(!is.na(question_null_client$AllowedIncome)),]
+
+question_null_client_eligible <- question_null_client[as.numeric(question_null_client$AllowedIncome) >= as.numeric(question_null_client$AnnualIncome),]
+
+
+question_null_client_eligible <- arrange(question_null_client_eligible, AskedOnUtc)
+
+question_null_client_eligible$AskedOnUtc >= "2018" & question_null_client_eligible$AskedOnUtc < "2019"
+
+q_n_c_e_2018 <- question_null_client_eligible[question_null_client_eligible$AskedOnUtc >= "2018" & question_null_client_eligible$AskedOnUtc < "2019",]
+
+q_n_c_e_2019 <- question_null_client_eligible[question_null_client_eligible$AskedOnUtc >= "2019" & question_null_client_eligible$AskedOnUtc < "2020",]
+
+q_n_c_e_2020 <- question_null_client_eligible[question_null_client_eligible$AskedOnUtc >= "2020" & question_null_client_eligible$AskedOnUtc < "2021",]
+
+q_n_c_e_2021 <- question_null_client_eligible[question_null_client_eligible$AskedOnUtc >= "2021" & question_null_client_eligible$AskedOnUtc < "2022",]
+
+
+write.csv(q_n_c_e_2018, "questions2018.csv")
+write.csv(q_n_c_e_2019, "questions2019.csv")
+write.csv(q_n_c_e_2020, "questions2020.csv")
+write.csv(q_n_c_e_2021, "questions2021.csv")
+
+
+
+table(question_null_client_eligible$Category)
+```
+
+
+```{r}
+sum(is.na(left_join(q_n_c_e_f, question_posts, by = c("QuestionUno"))))
+
+null_questions <- left_join(q_n_c_e_f, question_posts, by = c("QuestionUno"))
+
+family_questions <- null_questions[!is.na(null_questions$PostText),]
+
+fam_tab <- table(family_questions$StateName)
+sorted_fam_tab <- fam_tab[order(fam_tab, decreasing = T)]
+sorted_fam_tab
+
+# null_questions gives us the cleaned family/custody based unanswered cases. We see that these are the states that have the problems. Because of this, we can see that something that we could do to help answer more problems that are unanswered is getting more custody lawyers from Texas, Indiana, Georgia, and Illinois specifically.
+```
+
+```{r}
+library(forecast)
+```
+
+
+```{r}
+head(questions)
+table(questions$Category)
+
+table(questions[questions$Category == "Housing and Homelessness",]$Subcategory)[order(table(questions[questions$Category == "Housing and Homelessness",]$Subcategory), decreasing = T)]
+```
+
+```{r}
+q_family <- questions[questions$Category == "Family and Children",]
+tail(q_family$AskedOnUtc)
+
+
+
+head(q_family$AskedOnUtc)
+```
+
+##################################################
+Time Serires Analysis
+##################################################
+```{r}
+fc <- questions[questions$Category == "Family and Children",]
+ir <- questions[questions$Category == "Individual Rights",]
+cfq <- questions[questions$Category == "Consumer Financial Quenstions",]
+hh <- questions[questions$Category == "Housing and Homelessness",]
+im <- questions[questions$Category == "Income Maintenance",]
+hd <- questions[questions$Category == "Health and Disability",]
+weu <- questions[questions$Category == "Work, Employment and Unemployment",]
+juv <- questions[questions$Category == "Juvenile",]
+edu <- questions[questions$Category == "Education",]
+```
+
+Let's clean this data a little bit
+
+
+```{r}
+clients_fc <- left_join(fc, clients, by = c("AskedByClientUno" = "ClientUno"))
+dim(clients_fc)
+# let's find out when we have no null allowed and annual income
+clients_fc <- clients_fc[clients_fc$AnnualIncome != "NULL",]
+
+clients_fc <- clients_fc[as.numeric(clients_fc$AllowedIncome) >= as.numeric(clients_fc$AnnualIncome),]
+```
+
+
+
+
+```{r}
+fc$AskedOnUtc <- as.POSIXct(fc$AskedOnUtc, format = "%Y-%m-%d %H:%M:%S")
+fc2 <- arrange(fc, AskedOnUtc)
+fc2$AskedOnUtc <- as.POSIXct(fc2$AskedOnUtc, format = "%Y-%m-%d %H:%M:%S")
+```
+
+Used cleaned data for arima
+```{r}
+clients_fc <- arrange(clients_fc, AskedOnUtc)
+clients_fc$AskedOnUtc <- as.POSIXct(clients_fc$AskedOnUtc, format = "%Y - %m - %d %H:%M:%S")
+
+sum(table(format(clients_fc$AskedOnUtc, "%Y-%m")))
+
+clients_fc$AskedOnUtc > "2017-12-31 23:23:59"
+
+clients_fc_sub <- clients_fc[clients_fc$AskedOnUtc > "2017-12-31 23:59:59",]
+
+ts_clients_fc <- ts(table(format(clients_fc_sub$AskedOnUtc, "%Y-%m")), start = c(2018, 01), frequency = 12)
+
+ts.plot(ts_clients_fc)
+```
+
+```{r}
+decomp_fc2 <- decompose(ts_clients_fc)
+plot(decomp_fc2)
+
+ts.plot(ts_clients_fc)
+
+y_fc_star <- ts_clients_fc
+y_fc_starstar <- diff(y_fc_star, diff = 1)
+y_fc_starstarstar <- diff(y_fc_starstar, diff = 12)
+ts.plot(y_fc_starstarstar)
+
+
+acf(y_fc_starstarstar)
+pacf(y_fc_starstarstar)
+
+arima_fc <- arima(y_fc_star, order = c(2, 1, 1), seas = list(order = c(2, 1, 0), 12))
+
+acf(arima_fc$residuals)
+pacf(arima_fc$residuals)
+
+forecast_fc <- predict(arima_fc, n.ahead = 12)
+forecast.value_fc <- ts((forecast_fc$pred), start=start(2022,1), freq=12)
+ci.low_fc <- ts((forecast_fc$pred-1*forecast_fc$se), start=start(2022,1),freq=12)
+ci.high_fc <- ts((forecast_fc$pred+1*forecast_fc$se), start=start(2022,1),freq=12)
+
+ci.low_fc <- ts(ci.low_fc, start = c(2022, 1), frequency = 12)
+forecast.value_fc <- ts(forecast.value_fc, start = c(2022, 1), frequency = 12)
+ci.high_fc <- ts(ci.high_fc, start = c(2022, 1), frequency = 12)
+ts.plot(y_fc_star)
+ts.plot(cbind(y_fc_star, ci.low_fc, forecast.value_fc, ci.high_fc),
+        col=c("black", "blue", "red","blue"),
+        lty = c(1,3,1,3), main="ARIMA Forecast",
+        ylab = "Frequency", xlab = "Time (in years)",
+        ylim = c(200, 2200)) 
+```
+
+```{r}
+# this is the forecast section
+dates <- seq(as.Date("2022-01-01"), by = "month", length.out = 12)
+y_forecast_fc <- as.numeric(forecast.value_fc)
+y_ci.high_fc <- as.numeric(ci.high_fc)
+y_ci.low_fc <- as.numeric(ci.low_fc)
+df_forecast_fc <- data.frame(dates, y_forecast_fc, y_ci.low_fc, y_ci.high_fc)
+y_df_fc <- data.frame(y_fc_star)
+
+# this is the normal section
+
+data <- seq(as.Date("2018-01-01"), by = "month", length.out = 60)
+y_values_fc <- as.numeric(y_fc_star)[1:48]
+
+y_values_fc <- c(y_values_fc, y_forecast_fc)
+
+y_df_fc <- data.frame(data, y_values_fc, shaded = c(rep(F, 48), rep(T, 12)), ci_low_fc = c(rep(NULL, 48), ci.low_fc), ci_high_fc = c(rep(NULL, 48), ci.high_fc))
+
+y_df_stats <- y_df_fc %>%
+  summarize(mean = mean(y_fc_star), sd= sd(y_fc_star))
+
+str(y_df)
+
+1.96 * y_df_stats[1]
+
+ymin <- 1141.041	 - 1.96 * 221.423	
+ymax <- 1141.041	 + 1.96 * 221.423	
+
+ggplot(y_df_fc, aes(x = data, y = y_values_fc)) +
+  geom_line() + 
+  geom_line(aes(x = dates, y = y_forecast_fc), data = df_forecast_fc, col = "#F22E34") +
+  geom_line(aes(x = dates, y = y_ci.low_fc), data = df_forecast_fc, col = "#744AE9") + 
+  geom_line(aes(x = dates, y = y_ci.high_fc), data = df_forecast_fc, col = "#744AE9") + 
+  geom_ribbon(aes(x = data, ymin = ci_low_fc, ymax = ci_high_fc), data = y_df_fc[y_df_fc$shaded,], fill = "#AA91DC", alpha = 0.2) + ylim(400, 1800) + labs(x = "Date (In Years)", y = "Frequency", title = "ARIMA Forecast of 2022 Family and Children Based Questions", color = y_df_fc[y_df_fc$shaded,]) + theme(legend.position = "bottom")
+  
+  
+```
+
+
+
+
+
+
+
+
+
+Let's make time series for all of the questions
+
+
+```{r}
+head(client_q)
+q_ts <- arrange(client_q, AskedOnUtc)
+q_ts$AskedOnUtc <- as.POSIXct(q_ts$AskedOnUtc, format = "%Y-%m-%d %H:%M:%S")
+q_ts <- q_ts[q_ts$AskedOnUtc > "2017-12-31 23:59:59",]
+
+q_ts <- ts(table(format(q_ts$AskedOnUtc, "%Y-%m")), start = c(2018, 01), frequency = 12)
+
+ts.plot(q_ts)
+```
+
+```{r}
+decomp_q_ts <- decompose(q_ts)
+plot(decomp_q_ts)
+
+ts.plot(q_ts)
+
+y_fc_star <- ts_clients_fc
+y_fc_starstar <- diff(y_fc_star, diff = 1)
+y_fc_starstarstar <- diff(y_fc_starstar, diff = 12)
+ts.plot(y_fc_starstarstar)
+
+
+acf(y_fc_starstarstar)
+pacf(y_fc_starstarstar)
+
+arima_fc <- arima(y_fc_star, order = c(2, 1, 1), seas = list(order = c(2, 1, 0), 12))
+
+acf(arima_fc$residuals)
+pacf(arima_fc$residuals)
+
+forecast_fc <- predict(arima_fc, n.ahead = 12)
+forecast.value_fc <- ts((forecast_fc$pred), start=start(2022,1), freq=12)
+ci.low_fc <- ts((forecast_fc$pred-1*forecast_fc$se), start=start(2022,1),freq=12)
+ci.high_fc <- ts((forecast_fc$pred+1*forecast_fc$se), start=start(2022,1),freq=12)
+
+ci.low_fc <- ts(ci.low_fc, start = c(2022, 1), frequency = 12)
+forecast.value_fc <- ts(forecast.value_fc, start = c(2022, 1), frequency = 12)
+ci.high_fc <- ts(ci.high_fc, start = c(2022, 1), frequency = 12)
+ts.plot(y_fc_star)
+ts.plot(cbind(y_fc_star, ci.low_fc, forecast.value_fc, ci.high_fc),
+        col=c("black", "blue", "red","blue"),
+        lty = c(1,3,1,3), main="ARIMA Forecast",
+        ylab = "Frequency", xlab = "Time (in years)",
+        ylim = c(200, 2200)) 
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+ts_obj <- ts(table(format(fc2$AskedOnUtc, "%Y-%m")), start = c(2012, 10), frequency = 12)
+ts.plot(ts_obj)
+```
+
+```{r}
+library(xts)
+ts_obj <- as.xts(data = (ts_obj), start = c(2012, 10), end = c(2022, 1))
+library(dygraphs)
+# interactive plot
+dygraph(ts_obj)
+?dygraph
+str(ts_obj)
+ts_obj %>%
+  dygraph() %>%
+  dyRangeSelector()
+```
+
+
+```{r}
+?decompose
+
+decomp_fc <- decompose(ts_obj,type = "multiplicative")
+
+plot(decomp_fc)
+```
+```{r}
+acf(decomp_fc$seasonal)
+
+diff(diff(ts_obj, diff = 1), diff = 12)
+
+acf(diff(diff(ts_obj, diff = 1), diff = 12))
+```
+
+```{r}
+#pretransform but not namsayn
+y <- window(ts_obj, start = c(2018, 1))
+y.star <- y
+ts.plot(y.star)
+# differencing
+y.starstar <- diff(y.star, diff= 12)
+y.starstarstar <- diff(y.starstar, diff= 1)
+par(mfrow = c(2,1))
+acf(y.starstarstar, lag = 50, main = "ACF of Electronic Retail Sales")
+pacf(y.starstarstar, lag = 50, main = "PACF of Electronic Retail Sales")
+```
+
+```{r}
+library(forecast)
+
+
+
+auto.arima(y.starstarstar)
+arima.model <- arima(y.star, order = c(1, 1, 2), seas = list(order = c(2, 1, 0), 12))
+
+
+
+
+
+# diagnose the residuals
+par(mfrow=c(2,1))
+acf(arima.model$residuals, lag = 50, main = "ACF - Residuals")
+pacf(arima.model$residuals, lag = 50, main = "PACF - Residuals")
+forecast <- predict(arima.model, n.ahead = 12)
+forecast.value <- ts((forecast$pred), start=start(2022,1), freq=12)
+ci.low <- ts((forecast$pred-1*forecast$se), start=start(2022,1),freq=12)
+ci.high=ts((forecast$pred+1*forecast$se), start=start(2022,1),freq=12)
+# df.forecast = data.frame(retails_electronic_test, exp(forecast.value), 
+#                          exp(ci.low), exp(ci.high), forecast$se) #exp due to log transform
+# 
+# df.forecast
+ci.low <- ts(ci.low, start = c(2022, 1), frequency = 12)
+forecast.value <- ts(forecast.value, start = c(2022, 1), frequency = 12)
+ci.high <- ts(ci.high, start = c(2022, 1), frequency = 12)
+ts.plot(y)
+ts.plot(cbind(y, ci.low, forecast.value, ci.high),
+        col=c("black", "blue", "red","blue"),
+        lty = c(1,3,1,3), main="ARIMA Forecast",
+        ylab = "Frequency", xlab = "Time (in years)",
+        ylim = c(200, 2200)) 
+abline(v = 2019.1, col = "black", lty = 2)
+
+abline
+
+
+
+legend(x=1993.12, y=15000, lty=c(1,1,3), col=c("black", "red", "blue"),
+       text.col=c("black", "red", "blue"), legend=c("Electronic Retail Sales",
+                                                    "ARIMA Forecast", "Confidence Interval"),text.font=1, cex=0.5)
+# ts.plot(df.forecast, col = c("black","red","blue","blue"),lty = c(1, 1, 2, 2),
+#         main = "ARIMA Forecast vs Retail Electronic Sales",
+#         xlab = "Time (in months) -- 2019",
+#         ylab = "Retail Sales (in millions of dollars)", ylim = c(5000, 12000))
+# legend(1, 11500, lty=c(1, 1, 2, 2), text.col=c("black","red","blue","blue"), 
+#        legend=c("Electronic Retail Sales (Test)", "ARIMA Forecast", "Confidence Interval - Low", 
+#                 "Confidence Interval - High"),text.font=1, cex=0.5)
+
+```
+
+```{r}
+library(ggplot2)
+library(dygraphs)
+library(xts)
+```
+
+
+```{r}
+forecast.value
+
+dates <- seq(as.Date("2022-01-01"), by = "month", length.out = 12)
+y_forecast <- as.numeric(forecast.value)
+y_ci.high <- as.numeric(ci.high)
+y_ci.low <- as.numeric(ci.low)
+df_forecast <- data.frame(dates, y_forecast, y_ci.low, y_ci.high)
+```
+
+```{r}
+y_df <- data.frame(y)
+
+data <- seq(as.Date("2018-01-01"), by = "month", length.out = 60)
+y_values <- as.numeric(y)[1:48]
+
+y_values <- c(y_values, y_forecast)
+
+y_df <- data.frame(data, y_values, shaded = c(rep(F, 48), rep(T, 12)), ci_low = c(rep(NULL, 48), ci.low),
+                   ci_high = c(rep(NULL, 48), ci.high))
+
+y_df_stats <- y_df %>%
+  summarize(mean = mean(y), sd= sd(y))
+
+str(y_df)
+
+1.96 * y_df_stats[1]
+
+ymin <- 1444.633 - 1.96 * 293.7121	
+ymax <- 1444.633 + 1.96 * 293.7121	
+
+ggplot(y_df, aes(x = data, y = y_values)) +
+  geom_line() + 
+  geom_line(aes(x = dates, y = y_forecast), data = df_forecast, col = "#F22E34") +
+  geom_line(aes(x = dates, y = y_ci.low), data = df_forecast, col = "#744AE9") + 
+  geom_line(aes(x = dates, y = y_ci.high), data = df_forecast, col = "#744AE9") + 
+  geom_ribbon(aes(x = data, ymin = ci_low, ymax = ci_high), data = y_df[y_df$shaded,], fill = "#AA91DC", alpha = 0.2) + ylim(500, 2200) + labs(x = "Date (In Years)", y = "Frequency", title = "ARIMA Forecast of 2022 Family and Children Based Questions", color = y_df[y_df$shaded,]) + theme(legend.position = "bottom")
+  
+  
+```
+
+
+
+Split into categories by state
+
+```{r}
+fc_states <- table(fc2$StateAbbr)
+sorted_fc_states <- fc_states[order(fc_states, decreasing = T)]
+sorted_fc_states
+# let's select the states that need the most help: IN, TX, FL, IL, SC
+```
+```{r}
+fc_IN <- fc2[fc2$StateAbbr == "IN",]
+fc_TX <- fc2[fc2$StateAbbr == "TX",]
+
+fc_TX <- arrange(fc_TX, AskedOnUtc)
+
+
+fc_FL <- fc2[fc2$StateAbbr == "FL",]
+fc_IL <- fc2[fc2$StateAbbr == "IL",]
+fc_SC <- fc2[fc2$StateAbbr == "SC",]
+```
+
+
+```{r}
+IN_data <- table(format(fc_IN$AskedOnUtc, "%Y-%m"))
+# missing 2012-10, 2012-12, 2016-12, 2017-01, 2017-02, 2017-03
+i = 1
+
+
+fc_IN[3500:4000,]
+
+
+
+ts_fc_IN <- ts(IN_data, start = c(2012, 11), frequency = 12)
+
+length(ts_fc_IN)
+ts_fc_IN
+
+
+ts.plot(ts_fc_IN)
+
+decompIN <- decompose(ts_fc_IN, type = "additive")
+plot(decompIN)
+```
+
+```{r}
+decompIN <- decompose(ts_fc_IN, type = "additive")
+plot(decompIN)
+
+y_IN <- window(ts_fc_IN, start= c(2018, 1))
+y_IN_star <- y_IN
+
+ts.plot(Y_IN_starstarstar)
+
+Y_IN_starstar <- diff(y_IN_star, diff = 1)
+Y_IN_starstarstar <- diff(Y_IN_starstar, diff = 12)
+
+acf(Y_IN_starstarstar)
+pacf(Y_IN_starstarstar)
+
+IN_arima <- arima(y_IN_star, order = c(2, 1, 0), seas = list(order = c(0, 1, 0), 12))
+acf(IN_arima$residuals)
+pacf(IN_arima$residuals)
+
+forecast_IN <- predict(IN_arima, n.ahead = 12)
+forecast.value_IN <- ts((forecast_IN$pred), start=start(2021,7), freq=12)
+
+forecast.value_IN <- ts(forecast.value_IN, start = c(2021, 7), frequency = 12)
+
+ts.plot(y)
+ts.plot(cbind(y_IN, forecast.value_IN),
+        col=c("black", "red"),
+        lty = c(1, 1), main="ARIMA Forecast",
+        ylab = "Frequency", xlab = "Time (in years)") 
+```
+
+```{r}
+ts_fc_TX <- ts(table(format(fc_TX$AskedOnUtc, "%Y-%m")), start = c(2012, 10), end = c(2022, 1), frequency = 12)
+ts.plot(ts_fc_TX)
+
+decompTX <- decompose(ts_fc_TX, type = "additive")
+plot(decompTX)
+
+y_IN <- window(ts_fc_IN, start= c(2018, 1))
+y_IN_star <- y_IN
+
+ts.plot(Y_IN_starstarstar)
+
+Y_IN_starstar <- diff(y_IN_star, diff = 1)
+Y_IN_starstarstar <- diff(Y_IN_starstar, diff = 12)
+
+acf(Y_IN_starstarstar)
+pacf(Y_IN_starstarstar)
+
+IN_arima <- arima(y_IN_star, order = c(2, 1, 0), seas = list(order = c(0, 1, 0), 12))
+acf(IN_arima$residuals)
+pacf(IN_arima$residuals)
+
+forecast_IN <- predict(IN_arima, n.ahead = 12)
+forecast.value_IN <- ts((forecast_IN$pred), start=start(2021,8), freq=12)
+
+forecast.value_IN <- ts(forecast.value_IN, start = c(2021, 8), frequency = 12)
+
+ts.plot(y)
+ts.plot(cbind(y_IN, forecast.value_IN),
+        col=c("black", "red"),
+        lty = c(1, 1), main="ARIMA Forecast",
+        ylab = "Frequency", xlab = "Time (in years)") 
+
+
+
+
+
+tail(fc_TX)
+```
+
+all questions asked from 2018
+
+```{r}
+total_questions <- structure(c(1644, 1431, 1582, 1548, 1681, 1606, 1818, 1938, 1691, 
+1873, 1494, 1438, 1759, 1454, 1681, 1847, 1804, 1724, 1861, 1923, 
+1748, 1752, 1527, 1464, 2056, 1812, 1724, 1966, 2203, 2304, 2779, 
+2907, 2801, 2734, 2508, 2651, 3038, 2587, 2522, 2362, 2330, 2846, 
+2742, 2658, 2630, 2551, 2378, 2372, 2086), .Tsp = c(2018, 2022, 
+12), class = "ts")
+```
+
+```{r}
+decomp_total <- decompose(total_questions)
+plot(decomp_total$seasonal)
+```
+
+
+```{r}
+dates <- seq(as.Date("2018-01-01"), by = "month", length.out = 49)
+
+data_total <- data.frame(dates, seas = decomp_total$seasonal)
+
+
+p <- ggplot(data = data_total, aes(x = dates, y = seas)) +
+  geom_line(size = 1.3) + 
+  labs(x = "Date (In Years)", y = "Frequency of Questions", title = "Graph of Seasonality of Total Questions Asked Over Time")
+
+p+scale_x_date(date_labels = "%Y %b", breaks = "7 month", limits = c(as.Date("2018-01-01"), max(data_total$dates)))
+```
+```{r}
+question_null_client_eligible
+question_null_client_eligible$years <- 
+q_n_c_e_2018$year <- 2018
+q_n_c_e_2019$year <- 2019
+q_n_c_e_2020$year <- 2020
+q_n_c_e_2021$year <- 2021
+
+data_questions <- rbind(q_n_c_e_2018, q_n_c_e_2019, q_n_c_e_2020, q_n_c_e_2021)
+
+dim(data_questions)
+
+i <- 1
+for(i in 1:33895) {
+  if(data_questions$Category[i] == "Consumer Financial Questions") {
+    data_questions$Category[i] <- "C"
+    
+  } else if(data_questions$Category[i] == "Family and Children") {
+    data_questions$Category[i] <- "F"
+    
+  } else if(data_questions$Category[i] == "Individual Rights") {
+    data_questions$Category[i] <- "IR"
+    
+  } else if(data_questions$Category[i] == "Other") {
+    data_questions$Category[i] <- "O"
+    
+  } else if(data_questions$Category[i] == "Education") {
+    data_questions$Category[i] <- "E"
+    
+  } else if(data_questions$Category[i] == "Health and Disability") {
+    data_questions$Category[i] <- "D"
+    
+  } else if(data_questions$Category[i] == "Income Maintenance") {
+    data_questions$Category[i] <- "IM"
+    
+  } else if(data_questions$Category[i] == "Juvenile") {
+    data_questions$Category[i] <- "J"
+    
+  } else if(data_questions$Category[i] == "Housing and Homelessness") {
+    data_questions$Category[i] <- "H"
+  } else {
+    data_questions$Category[i] <- "W"
+  } 
+}
+table(data_questions$Category)
+```
+
+```{r}
+ggplot(data = data_questions, aes(x = Category, fill = year)) + 
+  geom_histogram(binwidth = 2, position = "dodge", color = "black", stat = "count", show.legend = F) + 
+  scale_fill_gradient(low = "#363232", high = "#C43939") +
+  facet_wrap(~ year, ncol = 4) + labs(x = "Categories", y = "Frequency of Non-Answered Questions", title = "Plot of Non-Answered Questions Over Time Per Category")
+  
+```
+```{r}
+questions[questions$Category == "Other",]$Subcategory
+```
+
+
+```{r}
+unique(questions$StateAbbr)
+
+# CO, DE, KY, MN, MT, ND, NV, OH, OR, RI, WA
+
+
+fam_client_q <- client_q[client_q$Category == "Family and Children",]
+
+barplot(fam_client_q$EthnicIdentity, )
+
+
+head(question_null_client_eligible)
+
+# we can see that nevada has the highest divorce rate and kentucky is number 8, even though these are not represented in the dataset.
+
+
+sum((fam_client_q$african) / clients_fam_size)
+# 0.1173015
+sum((fam_client_q$hispanic) / clients_fam_size)
+# 0.1797515
+sum((fam_client_q$caucasian) / clients_fam_size)
+# 0.550582
+sum((fam_client_q$native) / clients_fam_size)
+# 0.02876526
+sum((fam_client_q$asian) / clients_fam_size)
+# 0.02350103
+
+
+
+
+```
+
+
+```{r}
+ggplot(data = questions, aes(x = Category)) + 
+  geom_histogram(binwidth = 1000, stat = "count") + 
+  coord_flip()
+```
+```{r}
+table(client_q[client_q$Category == "Housing and Homelessness",]$Subcategory)
+```
+
+```{r}
+length(unique(questions$StateAbbr))
+```
+
+
+
+
+
